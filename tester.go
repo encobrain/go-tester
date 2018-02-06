@@ -118,7 +118,7 @@ func (t *Tester) runTestsInDir (dir string, tab string) {
 
 var defaultFilter = regexp.MustCompile(".")
 
-// Runs tests. Ignored all test files with "package main"
+// Runs tests. Ignored all tests with comments "@Tester:ignore" before test name
 func (t *Tester) Test (T *testing.T) {
 	if t.ColorSheme == nil { t.ColorSheme = DefaultColorSheme }
 	if t.Tab == "" { t.Tab = "   " }
@@ -207,8 +207,7 @@ func ParseDefaultFlags () (tester *Tester) {
 }
 
 var testFileNameRe = regexp.MustCompile("_test\\.go$")
-var packageMainRe  = regexp.MustCompile("^\\s*package\\s+main")
-var testFuncRe 	   = regexp.MustCompile("(?m)^\\s*func\\s+(Test\\w+)")
+var testFuncRe 	   = regexp.MustCompile("(@Tester:ignore.*?[\n\r]+)?\\s*func\\s+(Test\\w*)")
 
 func getTests (path string) (tests []string, err error) {
 	files,err := ioutil.ReadDir(path)
@@ -221,10 +220,8 @@ func getTests (path string) (tests []string, err error) {
 
 			if err != nil { return nil, err }
 			
-			if packageMainRe.Match(content) { continue }
-			
 			for _,m := range testFuncRe.FindAllStringSubmatch(string(content),-1) {
-				if m[1] != "TestMain" { tests = append(tests, m[1]) }
+				if m[2] != "TestMain" && m[1] == "" { tests = append(tests, m[2]) }
 			}
 		}
 	}
