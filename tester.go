@@ -23,7 +23,6 @@ type Tester struct {
 	ShowIgnored bool
 	TestRuns 	int
 	SaveAllLogs bool
-	RunTimeout  time.Duration
 
 	RootPath	string
 	LogsPath   	string
@@ -124,7 +123,6 @@ func (t *Tester) Test (T *testing.T) {
 	if t.Tab == "" { t.Tab = "   " }
 	if t.Filter == nil { t.Filter = defaultFilter }
 	if t.TestRuns == 0 { t.TestRuns = 1 }
-	if t.RunTimeout == 0 { t.RunTimeout = 10*time.Minute }
 	if t.LogsPath == "" { t.LogsPath = "./tests-logs" }
 	if t.RootPath == "" { t.RootPath = "./" }
 
@@ -163,7 +161,6 @@ func ParseDefaultFlags () (tester *Tester) {
 	ignored 	:= flag.Bool("ignored", false, "Show ignored tests")
 	runs 		:= flag.Int("runs", 1, "Test runs")
 	allpassed   := flag.Bool("allpassed", false, "Save all logs")
-	rtimeout    := flag.String("rtimeout", "10m", "Test run timeout")
 	logsPath    := flag.String("logspath", "./tests-logs", "Logs path")
 
 
@@ -180,13 +177,6 @@ func ParseDefaultFlags () (tester *Tester) {
 		os.Exit(0)
 	}
 
-	runTimeout,err := time.ParseDuration(*rtimeout)
-
-	if err != nil {
-		fmt.Println("Parse rtimeout fail:", err)
-		os.Exit(0)
-	}
-
 	testFilterRe,err := regexp.Compile(*filter)
 
 	if err != nil {
@@ -199,7 +189,6 @@ func ParseDefaultFlags () (tester *Tester) {
 		ShowIgnored: 	*ignored,
 		TestRuns:		*runs,
 		SaveAllLogs: 	*allpassed,
-		RunTimeout: 	runTimeout,
 		LogsPath: 		*logsPath,
 	}
 
@@ -243,7 +232,6 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 	for {
 		cmd = exec.Command("go", "test",
 			"-v",
-			"-timeout", t.RunTimeout.Round(time.Second).String(),
 			"-count", strconv.Itoa(t.TestRuns),
 			"-run", "^"+testName+"$",
 		)
