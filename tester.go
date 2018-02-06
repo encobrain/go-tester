@@ -65,7 +65,7 @@ func (t *Tester) runTestsInDir (dir string, tab string) {
 
 		if match || t.ShowIgnored {
 			t.showDir(dir)
-			fmt.Print(tab, t.Tab, t.ColorSheme.TestName.Sprint(testName), " ")
+			fmt.Print(tab, t.ColorSheme.TestName.Sprint(testName), " ")
 
 			if match {
 				stdout,stderr,terr := t.runTest(dir, testName)
@@ -280,8 +280,8 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 	}
 
 	if t.TestRuns>1 {
-		if stdoutbuf.i > 0 { fmt.Print(strings.Repeat("\b", len(strconv.Itoa(t.TestRuns)) )) }
-		if err !=nil && stdoutbuf.pass>0 {
+		if stdoutbuf.i > 0 { fmt.Print(strings.Repeat("\b", len(strconv.Itoa(stdoutbuf.i)) )) }
+		if err != nil && stdoutbuf.pass>0 {
 			fmt.Printf("%s.%s ", t.ColorSheme.Pass.Sprint(stdoutbuf.pass), t.ColorSheme.Fail.Sprint(stdoutbuf.fail) )
 		}
 	}
