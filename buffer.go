@@ -14,20 +14,21 @@ var failRe = regexp.MustCompile("^--- FAIL:")
 var runRe  = regexp.MustCompile("^=== RUN")
 
 type buffer struct {
-	passColor *color.Color
-	failColor *color.Color
+	passColor    *color.Color
+	failColor    *color.Color
 	
-	bytes 	  []byte
-	i 		  int
-	pass      int
-	fail      int
-	lastlinei int
-	lastruni  int
-	timer 	  *time.Timer
+	bytes 	     []byte
+	i 		     int
+	pass         int
+	fail         int
+	lastlinei    int
+	lastruni     int
+	timer 	  	 *time.Timer
+	timerTimeout time.Duration
 }
 
 func (b *buffer) Write (bytes []byte) (n int, err error) {
-	b.timer.Reset(time.Second*10)
+	b.timer.Reset(b.timerTimeout)
 
 	for _,by := range bytes {
 		if by == '\n' {

@@ -17,12 +17,14 @@ import (
 )
 
 type Tester struct {
-	ColorSheme 	*ColorSheme
-	Tab 		string
-	Filter 		*regexp.Regexp
-	ShowIgnored bool
-	TestRuns 	int
-	SaveAllLogs bool
+	ColorSheme    *ColorSheme
+	Tab           string
+	Filter        *regexp.Regexp
+	ShowIgnored   bool
+	TestRuns      int
+	SaveAllLogs   bool
+	Restarts      int
+	FreezeTimeout time.Duration
 
 	RootPath	string
 	LogsPath   	string
@@ -162,6 +164,7 @@ func ParseDefaultFlags () (tester *Tester) {
 	runs 		:= flag.Int("runs", 1, "Test runs")
 	allpassed   := flag.Bool("allpassed", false, "Save all logs")
 	logsPath    := flag.String("logspath", "./tests-logs", "Logs path")
+	freezeTime  := flag.String("freezeTimeout", "10s", "Timeout for mark test fail if it freeze")
 
 
 	flag.Parse()
@@ -172,8 +175,8 @@ func ParseDefaultFlags () (tester *Tester) {
 		fmt.Println(" -ignored\n\tShow ignored tests")
 		fmt.Println(" -runs n\n\tTest runs count. Default 1")
 		fmt.Println(" -allpassed\n\tAlways save all logs. Else last passed or all fails")
-		fmt.Println(" -rtimeout time\n\tRun timeout of one test. Default 10m")
 		fmt.Println(" -logspath path\n\tPath for logs of test results. Default \"./tests-logs\"")
+		fmt.Println(" -freezeTimeout time\nTimeout for mark test fail if it freeze. Default 10s")
 		os.Exit(0)
 	}
 
@@ -183,6 +186,12 @@ func ParseDefaultFlags () (tester *Tester) {
 		fmt.Printf("Regexp incorrect: %s\n", err)
 		os.Exit(0)
 	}
+
+	ft,err := time.ParseDuration(*freezeTime)
+	if err != nil {
+		fmt.Printf("Freeze timeout invalid: %s", err)
+		os.Exit(0)
+	}
 	
 	tester = &Tester{
 		Filter: 		testFilterRe,
@@ -190,6 +199,7 @@ func ParseDefaultFlags () (tester *Tester) {
 		TestRuns:		*runs,
 		SaveAllLogs: 	*allpassed,
 		LogsPath: 		*logsPath,
+		FreezeTimeout:  ft,
 	}
 
 	return 
@@ -228,27 +238,28 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 	}()
 
 	var stdoutbuf,stderrbuf *buffer
+	runs := t.TestRuns
+
+	freezed := time.NewTimer(t.FreezeTimeout)
+
+	stdoutbuf = &buffer{timer: freezed, timerTimeout: t.FreezeTimeout}
+	stderrbuf = &buffer{timer: freezed, timerTimeout: t.FreezeTimeout}
+
+	if t.TestRuns > 1 {
+		stdoutbuf.passColor = t.ColorSheme.Pass
+		stdoutbuf.failColor = t.ColorSheme.Fail
+		stderrbuf.passColor = t.ColorSheme.Pass
+		stderrbuf.failColor = t.ColorSheme.Fail
+	}
 
 	for {
 		cmd = exec.Command("go", "test",
 			"-v",
-			"-count", strconv.Itoa(t.TestRuns),
+			"-count", strconv.Itoa(runs),
 			"-run", "^"+testName+"$",
 		)
 
 		cmd.Dir = dir
-
-		restart := time.NewTimer(time.Second*10)
-
-		stdoutbuf = &buffer{timer: restart}
-		stderrbuf = &buffer{timer: restart}
-
-		if t.TestRuns > 1 {
-			stdoutbuf.passColor = t.ColorSheme.Pass
-			stdoutbuf.failColor = t.ColorSheme.Fail
-			stderrbuf.passColor = t.ColorSheme.Pass
-			stderrbuf.failColor = t.ColorSheme.Fail
-		}
 
 		cmd.Stdout = stdoutbuf
 		cmd.Stderr = stderrbuf
@@ -266,18 +277,20 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 		}()
 
 		select {
-			case <-restart.C:
+			case <-freezed.C:
 				cmd.Process.Kill()
-				if t.TestRuns>1 {
-					if stdoutbuf.i > 0 { fmt.Print(strings.Repeat("\b", len(strconv.Itoa(stdoutbuf.i)) )) }
-				}
-				continue
-				
+				stdoutbuf.Write([]byte(fmt.Sprintf("--- FAIL: Test freezed %v\n", t.FreezeTimeout)))
+				runs -= stdoutbuf.i
+
+				if runs != 0 { continue }
+
 			case <-done:
 		}
 
 		break
 	}
+
+	if err == nil && stdoutbuf.fail>0 { err = fmt.Errorf("Test fail") }
 
 	if t.TestRuns>1 {
 		if stdoutbuf.i > 0 { fmt.Print(strings.Repeat("\b", len(strconv.Itoa(stdoutbuf.i)) )) }
