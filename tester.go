@@ -280,7 +280,7 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 			case <-freezed.C:
 				cmd.Process.Kill()
 				stdoutbuf.Write([]byte(fmt.Sprintf("--- FAIL: Test freezed %v\n", t.FreezeTimeout)))
-				runs -= stdoutbuf.i
+				runs = t.TestRuns - stdoutbuf.i
 
 				if runs != 0 { continue }
 
