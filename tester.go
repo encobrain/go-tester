@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"regexp"
 	"io/ioutil"
-
 	"strings"
 	"strconv"
 	"time"
@@ -234,7 +233,10 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 	defer func() {
 		if err == nil { return }
 
-		if cmd.Process != nil { cmd.Process.Kill() }
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+			exec.Command("killall", "tests.test").Run()
+		}
 	}()
 
 	var stdoutbuf,stderrbuf *buffer
@@ -279,6 +281,8 @@ func (t *Tester) runTest (dir string, testName string) (stdout []byte, stderr []
 		select {
 			case <-freezed.C:
 				cmd.Process.Kill()
+				exec.Command("killall", "tests.test").Run()
+				
 				stdoutbuf.Write([]byte(fmt.Sprintf("--- FAIL: Test is frozen %v\n", t.FreezeTimeout)))
 				runs = t.TestRuns - stdoutbuf.i
 
